@@ -1,0 +1,4 @@
+---
+profile_jsm::db_name: "jsmdb"
+profile_jsm::db_user: "jsmdb_user"
+profile_jsm::db_password: ~
