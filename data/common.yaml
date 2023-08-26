@@ -2,3 +2,6 @@
 profile_jsm::db_name: "jsmdb"
 profile_jsm::db_user: "jsmdb_user"
 profile_jsm::db_password: ~
+profile_jsm::jira_home: "/srv/jira/home"
+profile_jsm::backup_dir: "/backups"
+profile_jsm::backups_max_qty: 15

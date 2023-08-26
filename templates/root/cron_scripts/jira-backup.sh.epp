@@ -1,0 +1,41 @@
+<%- |
+  String[1]   $jira_home,
+  String[1]   $backup_dir,
+  Integer[0]  $rotate,
+| -%>
+#!/bin/bash
+# This file is managed by Puppet. DO NOT EDIT.
+#
+# Jira shared home backup
+
+ROTATE=<%= $rotate %>
+BASEDIR="<%= $backup_dir %>"
+TGT="${BASEDIR}/$(date +%F_%H-%M-%S)".jira_home.tgz
+JIRA_HOME="<%= $jira_home %>"
+
+# Ensure backup directory exists
+mkdir -p $BASEDIR
+
+<%- if $facts['kernel'] == 'Linux' { -%>
+set -o pipefail
+<%- } -%>
+
+cleanup()
+{
+  find "${BASEDIR}/" -mindepth 1 -maxdepth 1 -mtime +${ROTATE} -print0 \
+  | xargs -0 -r rm -rf 
+}
+
+# Make backup
+exclude_dirs=( export import log analytics-logs tmp )
+opts=()
+for d in "${exclude_dirs[@]}"; do opts+=("--exclude=${JIRA_HOME}/${d}"); done
+tar -c -z \
+  "${opts[@]}" \
+  -f "${TGT}" \
+  "${JIRA_HOME}"
+
+# Remove outdated backups only if the new backup was successful.
+if [ $? -eq 0 ] ; then
+  cleanup
+fi
