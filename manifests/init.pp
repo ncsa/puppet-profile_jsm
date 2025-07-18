@@ -14,6 +14,16 @@
 #
 # @param backups_max_qty Keep this many backups
 #
+# @param maintenance_allowed_ips Array of IPs allowed to access Jira while in
+#        maintenance mode
+#
+# @param enable_cron_restart Boolean - Enable or disable the cronjob to
+#        periodically restart the Confluence service.
+#        Default: False
+#
+# @param cron_restart_params Hash, when to schedule the Confluence restart cron,
+#        must be valid parameters to the Puppet Cron Resource
+#
 # @example
 #   include profile_jsm
 class profile_jsm (
@@ -23,9 +33,10 @@ class profile_jsm (
   String  $jira_home,
   String  $backup_dir,
   Integer $backups_max_qty,
+  Array   $maintenance_allowed_ips,
+  Boolean $enable_cron_restart,
+  Hash    $cron_restart_params,
 ) {
-  include lvm
-  include profile_website
 
   $cron_params = {
     hour   => 4,
@@ -43,15 +54,6 @@ class profile_jsm (
 
   ### Postgres setup
   class { 'postgresql::server':
-    backup_enable  => true,
-    backup_options => {
-      dir         => "${backup_dir}/postgres",
-      db_user     => 'postgres_backup_user',
-      db_password => $db_password,
-      time        => [$cron_params[hour], $cron_params[minute]],
-      manage_user => true,
-      rotate      => $backups_max_qty,
-    },
   }
 
   postgresql::server::database { $db_name :
@@ -72,23 +74,51 @@ class profile_jsm (
     role      => $db_user,
   }
 
-  ### Jira Backups
-  $jira_backup = '/root/cron_scripts/jira-backup.sh'
-  file { $jira_backup :
-    ensure  => file,
-    mode    => '0700',
-    owner   => 'root',
-    group   => '0',
-    content => epp("profile_jsm/${jira_backup}.epp", {
-        jira_home  => $jira_home,
-        backup_dir => "${backup_dir}/jirahome",
-        rotate     => $backups_max_qty,
-      }
-    ),
+  ### Maintenance setup
+  # 503 downtime announcement
+  $maint_html = '/var/www/html/maint.html'
+  file { $maint_html:
+    ensure => 'file',
+    source => "puppet:///modules/${module_name}${maint_html}",
   }
 
-  cron { 'jira home backup':
-    command => $jira_backup,
-    *       => $cron_params,
+  # IPs allowed to bypass maintenance mode
+  $maint_dir = '/var/www/maintenance'
+  $exceptions = "${maint_dir}/exceptions.map"
+  file { $maint_dir:
+    ensure => 'directory',
   }
+  file { $exceptions:
+    ensure  => 'file',
+    content => epp("${module_name}/${exceptions}.epp", { 'cidr_list' => $maintenance_allowed_ips }),
+  }
+
+  # Enable scheduled service restarts
+  if $enable_cron_restart {
+    cron { 'Restart the jira service periodically' :
+      command => '/usr/bin/systemctl restart jira',
+      user    => root,
+      *       => $cron_restart_params,
+    }
+  }
+
+  # ### Jira Backups
+  # $jira_backup = '/root/cron_scripts/jira-backup.sh'
+  # file { $jira_backup :
+  #   ensure  => file,
+  #   mode    => '0700',
+  #   owner   => 'root',
+  #   group   => '0',
+  #   content => epp("profile_jsm/${jira_backup}.epp", {
+  #       jira_home  => $jira_home,
+  #       backup_dir => "${backup_dir}/jirahome",
+  #       rotate     => $backups_max_qty,
+  #     }
+  #   ),
+  # }
+
+  # cron { 'jira home backup':
+  #   command => $jira_backup,
+  #   *       => $cron_params,
+  # }
 }
