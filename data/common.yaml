@@ -6,6 +6,7 @@ profile_jsm::backup_dir: "/backups"
 profile_jsm::backups_max_qty: 15
 profile_jsm::maintenance_allowed_ips: []
 profile_jsm::enable_cron_restart: false
+profile_jsm::pg_hba_rule: nil,
 profile_jsm::cron_restart_params: {
   hour: 3,
   minute: 45,
