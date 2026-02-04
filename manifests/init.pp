@@ -32,11 +32,14 @@ class profile_jsm (
   String  $db_password,
   String  $jira_home,
   String  $backup_dir,
+  Hash  $pg_hba_rule,
   Integer $backups_max_qty,
   Array   $maintenance_allowed_ips,
   Boolean $enable_cron_restart,
   Hash    $cron_restart_params,
 ) {
+  # For internal access to DB
+  include profile_jsm::firewall
 
   $cron_params = {
     hour   => 4,
@@ -121,4 +124,9 @@ class profile_jsm (
   #   command => $jira_backup,
   #   *       => $cron_params,
   # }
+
+  # Adds HBA rules for postgresql which allows DB access
+  $pg_hba_rule.each |$type, $properties| {
+    profile_jsm::hba {$type: * => $properties}
+  }
 }
